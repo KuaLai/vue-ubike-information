@@ -1,22 +1,93 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>YouBike 臺北市公共自行車即時資訊</title>
+<html lang="en">
 
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>練習 13： YouBike 臺北市公共自行車即時資訊</title>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css"
+    integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
 
   <style>
-    body{ padding: 1em;  }
+    body {
+      padding: 1em;
+    }
+
+    .filterbox {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 1rem 0;
+    }
+
+    .filterbox-item {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 0.8rem;
+      background: #f4f4f4;
+      margin-right: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 0.4rem;
+    }
+
+    .filterbox label {
+      display: flex;
+      align-items: center;
+      margin-right: 0.5rem;
+      margin-bottom: 0;
+    }
+
+    .filterbox input {
+      margin: 0 0.4rem;
+    }
   </style>
 
-</head>
-<body>
+  <script src="https://unpkg.com/vue@next"></script>
 
-  <h1>YouBike 臺北市公共自行車即時資訊</h1>
+</head>
+
+<body>
+  <p>
+    練習 13： YouBike 臺北市公共自行車即時資訊 <br>
+    完成下列表格，並加入:
+    1. 站點名稱搜尋
+    2. 目前可用車輛 / 總停車格 的排序功能
+  </p>
+
+  <hr>
 
   <div id="app">
+
+    <div class="filterbox">
+      <div class="filterbox-item">
+        站點名稱搜尋: <input type="text" v-model="searchName">
+      </div>
+      <div class="filterbox-item">
+        <label><input type="radio" v-model="sortType" value="">預設排序</label>
+      </div>
+      <div class="filterbox-item">
+        依目前可用車輛：
+        <label><input type="radio" v-model="sortType" value="isSbiDesc"> 遞減</label>
+        <label><input type="radio" v-model="sortType" value="isSbiAsc"> 遞增</label> 
+      </div>
+
+      <div class="filterbox-item">
+        依總停車格:
+        <label><input type="radio" v-model="sortType" value="isTotDesc"> 遞減</label>
+        <label><input type="radio" v-model="sortType" value="isTotAsc"> 遞增</label>
+      </div>
+
+      <div class="filterbox-item">
+        依區域：
+        <select name="area" id="Area"  v-on:change="isSarea($event)">
+          <option :selected value="default">請選擇區域</option>
+          <option v-for="(name,index) of filterAreaArr" :key="name.sno">{{ name }}</option>
+        </select>
+      </div>
+    </div>
 
     <table class="table table-striped">
       <thead>
@@ -24,28 +95,151 @@
           <th>#</th>
           <th>場站名稱</th>
           <th>場站區域</th>
-          <th>目前可用車輛</th>
-          <th>總停車格</th>
+          <th>目前可用車輛
+            <i class="fa fa-sort-asc" aria-hidden="true"></i>
+            <i class="fa fa-sort-desc" aria-hidden="true"></i>
+          </th>
+          <th>總停車格
+            <i class="fa fa-sort-asc" aria-hidden="true"></i>
+            <i class="fa fa-sort-desc" aria-hidden="true"></i>
+          </th>
           <th>資料更新時間</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="s in ubikeStops">
-          <td>{{ s.sno }}</td>
-          <td>{{ s.sna }}</td>
-          <td>{{ s.sarea }}</td>
-          <td>{{ s.sbi }}</td>
-          <td>{{ s.tot }}</td>
-          <td>{{ timeFormat(s.mday) }}</td>
+        <!-- 請補完 -->
+        <tr v-for="(s, idx) of filterArr">
+          <td> {{ s.sno }}</td>
+          <td> {{ s.sna }} </td>
+          <td> {{ s.sarea }} </td>
+          <td> {{ s.sbi }} </td>
+          <td> {{ s.tot }} </td>
+          <td> {{ timeFormat(s.mday) }} </td>
         </tr>
       </tbody>
-
     </table>
-
   </div>
 
-  <script src="https://unpkg.com/vue@next"></script>
-  <script src="./scripts.js?v=2020081401"></script>
+
+  <script>
+
+    // 欄位說明請參照:
+    // http://data.taipei/opendata/datalist/datasetMeta?oid=8ef1626a-892a-4218-8344-f7ac46e1aa48
+    // 半成品參考: https://kuro.tw/vue-ubike-information/
+
+    // sno：站點代號、 sna：場站名稱(中文)、 tot：場站總停車格、
+    // sbi：場站目前車輛數量、 sarea：場站區域(中文)、 mday：資料更新時間、
+    // lat：緯度、 lng：經度、 ar：地(中文)、 sareaen：場站區域(英文)、
+    // snaen：場站名稱(英文)、 aren：地址(英文)、 bemp：空位數量、 act：全站禁用狀態
+
+    const app = Vue.createApp({
+      data() {
+        return {
+          uBikeStops: [],
+          searchName: '',
+          sortType: '',
+          sbi: [],
+          sareaSelect: ''
+    
+        }
+      },
+      created() {
+        fetch('https://tcgbusfs.blob.core.windows.net/blobyoubike/YouBikeTP.gz')
+          .then(res => res.json())
+          .then(json => {
+            const stops = Object.keys(json.retVal).map(key => json.retVal[key]);
+            this.uBikeStops = stops;
+          });
+      },
+      computed: {
+        filterArr() {
+          var ubikeStops = this.uBikeStops;
+          var copyUbikeStops = [];
+          var searchName = this.searchName;
+          var sortType = this.sortType;
+          var sareaSelect = this.sareaSelect;
+
+          for (let index = 0; index < ubikeStops.length; index++) {
+            const element = ubikeStops[index];
+            copyUbikeStops.push(element)
+          }
+          // 過濾
+          if (searchName) {
+            copyUbikeStops = copyUbikeStops.filter(s => {
+              return s.sna.includes(searchName);
+            });
+          }
+
+          // 依區域
+          if (sareaSelect) {
+            copyUbikeStops = copyUbikeStops.filter(s => {
+              return s.sarea.includes(sareaSelect);
+            });
+          }
+          
+          // 排序 ： 不太清楚該如何連結按鈕跟圖案連動顯示Orz
+          if (this.sortType === 'isSbiDesc') {
+            copyUbikeStops = copyUbikeStops.sort((a, b) => b.sbi - a.sbi)
+          } else if (this.sortType === 'isSbiAsc') {
+            copyUbikeStops = copyUbikeStops.sort((a, b) => a.sbi - b.sbi)
+          } else if (this.sortType === 'isTotDesc') {
+            copyUbikeStops = copyUbikeStops.sort((a, b) => b.tot - a.tot)
+          } else if (this.sortType === 'isTotAsc') {
+            copyUbikeStops = copyUbikeStops.sort((a, b) => a.tot - b.tot)
+          } else {
+            copyUbikeStops = copyUbikeStops
+          }
+
+          return copyUbikeStops;
+
+        },
+        filterAreaArr() {
+
+          var ubikeStops = this.uBikeStops;
+          var sareaList = [];
+
+          for (let index = 0; index < ubikeStops.length; index++) {
+            const element = ubikeStops[index].sarea;
+
+            var isExist = sareaList.some(function (item) {
+              return item === element;
+            });
+
+            if (!isExist) {
+              sareaList.push(element)
+            }
+          }
+          return sareaList;
+
+        },
+        
+      },methods: {
+        timeFormat(t){
+
+        var date = [], time = [];
+
+        date.push(t.substr(0, 4));
+        date.push(t.substr(4, 2));
+        date.push(t.substr(6, 2));
+        time.push(t.substr(8, 2));
+        time.push(t.substr(10, 2));
+        time.push(t.substr(12, 2));
+
+        return date.join("/") + ' ' + time.join(":");
+        },
+        isSarea(event) {
+          var value = event.target.value;
+          if ( value === 'default') {
+            return this.sareaSelect = ''
+          } else {
+            return this.sareaSelect = value
+          }
+
+        }
+      }
+    }).mount('#app');
+  </script>
 
 </body>
+
 </html>
